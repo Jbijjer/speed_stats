@@ -5,7 +5,9 @@ const KEY = 'speedstack.v1';
 const $ = id => document.getElementById(id);
 const fmt = ms => (ms / 1000).toFixed(3);
 
-let db = { solves: [], event: '3-3-3' };
+let db = { solves: [], event: '3-3-3', mode: 'phone' };
+const need = () => db.mode === 'tablet2' ? 2 : 1;
+const hintIdle = () => need() === 2 ? 'Pose les deux mains sur les pads' : 'Pose un doigt sur le pad';
 try { Object.assign(db, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
 
@@ -18,7 +20,7 @@ function setLight(c) { $('light').className = c; }
 function setHint(t) { $('hint').textContent = t; }
 
 function update() {
-  const both = down.size === 2;
+  const both = down.size >= need();
   $('padL').classList.toggle('down', down.has('padL'));
   $('padR').classList.toggle('down', down.has('padR'));
   if (state === 'running') { if (both) stop(); return; }
@@ -26,11 +28,11 @@ function update() {
   clearTimeout(readyTimer);
   if (both) {
     state = 'holding'; setLight('red'); setHint('Maintiens…');
-    readyTimer = setTimeout(() => { state = 'ready'; setLight('grn'); setHint('Prêt — lève les mains !'); buzz(30); }, READY_MS);
+    readyTimer = setTimeout(() => { state = 'ready'; setLight('grn'); setHint('Prêt — lève la main !'); buzz(30); }, READY_MS);
   } else if (state === 'ready') {
     start();
   } else {
-    state = 'idle'; setLight('off'); setHint('Pose les deux mains sur les pads');
+    state = 'idle'; setLight('off'); setHint(hintIdle());
   }
 }
 
@@ -49,7 +51,7 @@ function stop() {
   db.solves.push({ ev: db.event, ms, at: Date.now() });
   save(); buzz([60, 40, 60]);
   const pb = prevBest === null || ms < prevBest;
-  setLight('off'); setHint(pb ? '🏆 Nouveau record !' : 'Lève les mains pour recommencer');
+  setLight('off'); setHint(pb ? '🏆 Nouveau record !' : 'Lève la main pour recommencer');
   renderRound(); releaseWake();
 }
 
@@ -117,5 +119,15 @@ for (const id of ['padL', 'padR']) {
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 document.addEventListener('contextmenu', e => e.preventDefault());
-renderRound(); setLight('off');
+function applyMode() {
+  $('mode').value = db.mode;
+  $('padR').hidden = need() === 1;
+  $('padL').textContent = need() === 1 ? 'TOUCHE ICI' : 'GAUCHE';
+  down.clear(); clearTimeout(readyTimer); state = 'idle';
+  $('padL').classList.remove('down'); $('padR').classList.remove('down');
+  setLight('off'); setHint(hintIdle());
+}
+$('mode').onchange = e => { db.mode = e.target.value; save(); applyMode(); };
+applyMode(); renderRound();
+try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

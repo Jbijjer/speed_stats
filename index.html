@@ -16,6 +16,11 @@
     <option value="3-6-3">3-6-3</option>
     <option value="Cycle">Cycle</option>
   </select>
+  <select id="mode" aria-label="Mode">
+    <option value="phone">Cellulaire (1 doigt)</option>
+    <option value="tablet2">Tablette (2 mains)</option>
+    <option value="tablet1">Tablette (1 main)</option>
+  </select>
   <nav>
     <button id="tab-timer" class="on">Chrono</button>
     <button id="tab-stats">Records</button>
@@ -23,10 +28,12 @@
 </header>
 
 <main id="view-timer">
-  <div id="light" class="red"></div>
-  <div id="time">0.000</div>
-  <div id="hint">Pose les deux mains sur les pads</div>
-  <div id="round"></div>
+  <div id="info">
+    <div id="light" class="off"></div>
+    <div id="time">0.000</div>
+    <div id="hint"></div>
+    <div id="round"></div>
+  </div>
   <div id="pads">
     <div class="pad" id="padL">GAUCHE</div>
     <div class="pad" id="padR">DROITE</div>
