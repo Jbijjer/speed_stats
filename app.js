@@ -16,7 +16,7 @@ let state = 'idle'; // idle | holding | ready | running | done
 const down = new Set();
 let readyTimer = 0, t0 = 0, raf = 0, wake = null;
 
-function setLight(c) { $('light').className = c; }
+function setLight(c) { $('pads').className = c; }
 function setHint(t) { $('hint').textContent = t; }
 
 function update() {
@@ -122,7 +122,6 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 function applyMode() {
   $('mode').value = db.mode;
   $('padR').hidden = need() === 1;
-  $('padL').textContent = need() === 1 ? 'TOUCHE ICI' : 'GAUCHE';
   down.clear(); clearTimeout(readyTimer); state = 'idle';
   $('padL').classList.remove('down'); $('padR').classList.remove('down');
   setLight('off'); setHint(hintIdle());

@@ -8,8 +8,6 @@ nav{display:flex;gap:6px}button.on{background:var(--acc);color:#001;border-color
 button.danger{color:var(--red)}
 main{flex:1;display:flex;flex-direction:column;min-height:0}
 #view-timer{align-items:center}
-#light{width:64px;height:64px;border-radius:50%;margin:12px 0 4px;background:#333;transition:background .1s}
-#light.red{background:var(--red)}#light.grn{background:var(--grn);box-shadow:0 0 30px var(--grn)}#light.off{background:#333}
 #time{font-size:min(24vw,110px);font-variant-numeric:tabular-nums;font-weight:700;line-height:1.1}
 #time.run{color:var(--acc)}
 #hint{color:var(--mut);min-height:22px;text-align:center;padding:0 12px}
@@ -39,3 +37,16 @@ li .pb{color:var(--grn);font-weight:700}li .del{color:var(--mut);padding:0 8px}
   #pads{flex:1;padding:6px 12px 10px 4px}
 }
 @media (orientation:portrait){#view-timer{flex-direction:column}#info{flex:0 0 auto}}
+
+/* Plein écran : le chrono EST le pad */
+#view-timer{position:relative;display:block}
+#pads{position:absolute;inset:0;padding:6px 8px 10px;display:flex;gap:8px}
+#info{position:absolute;inset:0;z-index:2;pointer-events:none;flex:none;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-shadow:0 2px 12px #0008}
+#time{font-size:min(22vw,52vh,200px)}
+#hint{font-size:clamp(16px,3.2vh,24px);color:var(--fg);opacity:.85}
+#round{position:absolute;bottom:22px}
+#pads.red .pad{background:#4a1a1d;border-color:var(--red)}
+#pads.grn .pad{background:#12452a;border-color:var(--grn)}
+#time.run{color:#fff}
+@media (orientation:landscape){#view-timer{display:block}#info{flex:none;padding:0}#pads{padding:6px 10px 10px}#time{font-size:min(22vw,52vh,200px)}}
+@media (orientation:portrait){#view-timer{display:block}#info{flex:none}#time{font-size:min(26vw,16vh,200px)}}
