@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Speed Stack Timer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <select id="event" aria-label="Épreuve">
+    <option value="3-3-3">3-3-3</option>
+    <option value="3-6-3">3-6-3</option>
+    <option value="Cycle">Cycle</option>
+  </select>
+  <nav>
+    <button id="tab-timer" class="on">Chrono</button>
+    <button id="tab-stats">Records</button>
+  </nav>
+</header>
+
+<main id="view-timer">
+  <div id="light" class="red"></div>
+  <div id="time">0.000</div>
+  <div id="hint">Pose les deux mains sur les pads</div>
+  <div id="round"></div>
+  <div id="pads">
+    <div class="pad" id="padL">GAUCHE</div>
+    <div class="pad" id="padR">DROITE</div>
+  </div>
+</main>
+
+<main id="view-stats" hidden>
+  <section id="records"></section>
+  <h2>Historique <span id="hist-event"></span></h2>
+  <ul id="history"></ul>
+  <div class="row">
+    <button id="export">Exporter</button>
+    <button id="clear" class="danger">Tout effacer</button>
+  </div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
