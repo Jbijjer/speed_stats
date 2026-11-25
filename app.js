@@ -37,7 +37,7 @@ function update() {
 }
 
 function start() {
-  state = 'running'; t0 = performance.now(); setLight('off'); setHint(''); $('time').classList.add('run');
+  state = 'running'; t0 = performance.now(); setLight('run'); setHint(''); $('time').classList.add('run');
   requestWake();
   const tick = () => { $('time').textContent = fmt(performance.now() - t0); raf = requestAnimationFrame(tick); };
   tick();
@@ -51,7 +51,7 @@ function stop() {
   db.solves.push({ ev: db.event, ms, at: Date.now() });
   save(); buzz([60, 40, 60]);
   const pb = prevBest === null || ms < prevBest;
-  setLight('off'); setHint(pb ? '🏆 Nouveau record !' : 'Lève la main pour recommencer');
+  setLight(pb ? 'pb' : 'done'); setHint(pb ? '🏆 Nouveau record !' : 'Lève la main pour recommencer');
   renderRound(); releaseWake();
 }
 
@@ -79,7 +79,7 @@ function renderStats() {
     const t = times(ev), b = best(ev);
     const a5 = t.length >= 5 ? fmt(trimmed(t.slice(-5))) : '—';
     const a12 = t.length >= 12 ? fmt(trimmed(t.slice(-12))) : '—';
-    return `<div class="rec"><b>${ev}</b><span class="v">${b === null ? '—' : fmt(b)}</span>
+    return `<div class="rec" data-ev="${ev}"><b>${ev}</b><span class="v">${b === null ? '—' : fmt(b)}</span>
       <small>${t.length} essai(s) · moy. 5 : ${a5} · moy. 12 : ${a12}</small><small></small></div>`;
   }).join('');
   $('hist-event').textContent = db.event;
