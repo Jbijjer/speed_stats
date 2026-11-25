@@ -5,7 +5,7 @@ const KEY = 'speedstack.v1';
 const $ = id => document.getElementById(id);
 const fmt = ms => (ms / 1000).toFixed(3);
 
-let db = { solves: [], event: '3-3-3', mode: 'phone' };
+let db = { solves: [], event: '3-3-3', mode: 'phone', comp: false, sound: true, round: { ev: '3-3-3', times: [] } };
 const need = () => db.mode === 'tablet2' ? 2 : 1;
 const hintIdle = () => need() === 2 ? 'Pose les deux mains sur les pads' : 'Pose un doigt sur le pad';
 try { Object.assign(db, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
@@ -28,7 +28,7 @@ function update() {
   clearTimeout(readyTimer);
   if (both) {
     state = 'holding'; setLight('red'); setHint('Maintiens…');
-    readyTimer = setTimeout(() => { state = 'ready'; setLight('grn'); setHint('Prêt — lève la main !'); buzz(30); }, READY_MS);
+    readyTimer = setTimeout(() => { state = 'ready'; setLight('grn'); setHint('Prêt — lève la main !'); buzz(30); sfx.ready(); }, READY_MS);
   } else if (state === 'ready') {
     start();
   } else {
@@ -37,6 +37,7 @@ function update() {
 }
 
 function start() {
+  if (db.comp && (db.round.ev !== db.event || db.round.times.length >= 3)) db.round = { ev: db.event, times: [] };
   state = 'running'; t0 = performance.now(); setLight('run'); setHint(''); $('time').classList.add('run');
   requestWake();
   const tick = () => { $('time').textContent = fmt(performance.now() - t0); raf = requestAnimationFrame(tick); };
@@ -49,12 +50,41 @@ function stop() {
   $('time').classList.remove('run'); $('time').textContent = fmt(ms);
   const prevBest = best(db.event);
   db.solves.push({ ev: db.event, ms, at: Date.now() });
-  save(); buzz([60, 40, 60]);
   const pb = prevBest === null || ms < prevBest;
-  setLight(pb ? 'pb' : 'done'); setHint(pb ? '🏆 Nouveau record !' : 'Lève la main pour recommencer');
+  let msg = pb ? '🏆 Nouveau record !' : 'Lève la main pour recommencer', roundDone = false;
+  if (db.comp) {
+    db.solves[db.solves.length - 1].comp = true;
+    db.round.times.push(ms);
+    roundDone = db.round.times.length >= 3;
+    if (roundDone) msg = '🏁 Manche terminée — meilleur ' + fmt(Math.min(...db.round.times)) + (pb ? ' 🏆' : '');
+    else msg = (pb ? '🏆 Record ! ' : '') + 'Essai ' + db.round.times.length + '/3 — lève la main pour le suivant';
+  }
+  save(); buzz([60, 40, 60]);
+  setLight(pb ? 'pb' : 'done'); setHint(msg);
+  if (pb) sfx.record(); else if (roundDone) sfx.round(); else sfx.stop();
+  if (pb && roundDone) setTimeout(sfx.round, 700);
   renderRound(); releaseWake();
 }
 
+// --- sons (Web Audio, aucun fichier) ---
+let actx = null;
+function beep(freq, dur = 0.12, type = 'sine', gain = 0.25, delay = 0) {
+  if (!db.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+  } catch (e) {}
+}
+const sfx = {
+  ready() { beep(880, 0.15, 'square', 0.15); },
+  stop() { beep(330, 0.18, 'triangle', 0.35); },
+  record() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'triangle', 0.3, i * 0.11)); },
+  round() { [392, 523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, 'sine', 0.3, i * 0.12)); },
+};
 const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 async function requestWake() { try { wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
 function releaseWake() { try { wake && wake.release(); wake = null; } catch (e) {} }
@@ -69,6 +99,13 @@ function bestOfRound(ev) { // "meilleur de 3" comme en compétition : on regarde
   const t = times(ev).slice(-3); return t.length ? Math.min(...t) : null;
 }
 function renderRound() {
+  if (db.comp) {
+    const r = db.round.ev === db.event ? db.round.times : [];
+    const n = r.length >= 3 ? 3 : r.length + 1;
+    const slots = [0, 1, 2].map(i => r[i] !== undefined ? fmt(r[i]) : '—').join(' · ');
+    $('round').textContent = (r.length >= 3 ? 'Manche terminée' : 'Essai ' + n + '/3') + '  |  ' + slots + (r.length ? '  |  Meilleur : ' + fmt(Math.min(...r)) : '');
+    return;
+  }
   const t = times(db.event).slice(-3);
   $('round').textContent = t.length ? 'Derniers : ' + t.map(fmt).join(' · ') + '  |  Meilleur : ' + fmt(Math.min(...t)) : 'Aucun temps pour cette épreuve';
 }
@@ -86,7 +123,7 @@ function renderStats() {
   const list = db.solves.map((s, i) => ({ ...s, i })).filter(s => s.ev === db.event).reverse();
   const b = best(db.event);
   $('history').innerHTML = list.length ? list.map(s =>
-    `<li><span class="${s.ms === b ? 'pb' : ''}">${fmt(s.ms)}${s.ms === b ? ' 🏆' : ''}</span>
+    `<li><span class="${s.ms === b ? 'pb' : ''}">${fmt(s.ms)}${s.ms === b ? ' 🏆' : ''}${s.comp ? ' 🏁' : ''}</span>
      <span>${new Date(s.at).toLocaleDateString('fr-CA')}<span class="del" data-i="${s.i}">✕</span></span></li>`).join('')
     : '<li>Aucun temps</li>';
 }
@@ -100,7 +137,7 @@ function tab(name) {
 $('tab-timer').onclick = () => tab('timer');
 $('tab-stats').onclick = () => tab('stats');
 $('event').value = db.event;
-$('event').onchange = e => { db.event = e.target.value; save(); renderRound(); $('time').textContent = '0.000'; if (!$('view-stats').hidden) renderStats(); };
+$('event').onchange = e => { db.event = e.target.value; db.round = { ev: db.event, times: [] }; save(); renderRound(); $('time').textContent = '0.000'; if (!$('view-stats').hidden) renderStats(); };
 $('history').onclick = e => {
   const i = e.target.dataset && e.target.dataset.i;
   if (i !== undefined && confirm('Supprimer ce temps ?')) { db.solves.splice(+i, 1); save(); renderStats(); }
@@ -119,6 +156,13 @@ for (const id of ['padL', 'padR']) {
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 document.addEventListener('contextmenu', e => e.preventDefault());
+function applyToggles() {
+  $('comp').classList.toggle('on', db.comp); $('comp').setAttribute('aria-pressed', db.comp);
+  $('snd').textContent = db.sound ? '🔊' : '🔇'; $('snd').setAttribute('aria-pressed', db.sound);
+  $('snd').title = db.sound ? 'Sons activés' : 'Sons désactivés';
+}
+$('comp').onclick = () => { db.comp = !db.comp; db.round = { ev: db.event, times: [] }; save(); applyToggles(); renderRound(); };
+$('snd').onclick = () => { db.sound = !db.sound; save(); applyToggles(); if (db.sound) sfx.ready(); };
 function applyMode() {
   $('mode').value = db.mode;
   $('padR').hidden = need() === 1;
@@ -127,6 +171,6 @@ function applyMode() {
   setLight('off'); setHint(hintIdle());
 }
 $('mode').onchange = e => { db.mode = e.target.value; save(); applyMode(); };
-applyMode(); renderRound();
+applyMode(); applyToggles(); renderRound();
 try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
