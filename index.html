@@ -28,10 +28,10 @@
     <option value="tablet1">Tablette 1 main</option>
   </select>
   <button id="comp" aria-pressed="false" title="Mode compétition : 3 essais">🏁 Compét.</button>
-  <button id="snd" aria-pressed="true" title="Sons">🔊</button>
   <nav>
     <button id="tab-timer" class="on">Chrono</button>
     <button id="tab-stats">Records</button>
+    <button id="tab-opts" aria-label="Options" title="Options">⚙</button>
   </nav>
 </header>
 
@@ -55,6 +55,28 @@
     <button id="export">Exporter</button>
     <button id="clear" class="danger">Tout effacer</button>
   </div>
+</main>
+<main id="view-opts" hidden>
+  <h2>Sons</h2>
+  <div class="opt">
+    <label for="o-sound">Sons activés</label>
+    <input type="checkbox" id="o-sound" class="switch">
+  </div>
+  <div class="opt">
+    <label for="o-vol">Volume</label>
+    <input type="range" id="o-vol" min="0" max="100" step="5">
+    <output id="o-vol-v">70</output>
+  </div>
+  <div class="opt">
+    <label for="o-theme">Type de son</label>
+    <select id="o-theme">
+      <option value="arcade">Arcade (bips)</option>
+      <option value="doux">Doux</option>
+      <option value="cloche">Cloche</option>
+      <option value="chrono">Chronomètre</option>
+    </select>
+  </div>
+  <div class="row"><button id="o-test">▶ Tester les sons</button></div>
 </main>
 <script src="app.js"></script>
 </body>

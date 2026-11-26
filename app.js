@@ -5,7 +5,7 @@ const KEY = 'speedstack.v1';
 const $ = id => document.getElementById(id);
 const fmt = ms => (ms / 1000).toFixed(3);
 
-let db = { solves: [], event: '3-3-3', mode: 'phone', comp: false, sound: true, round: { ev: '3-3-3', times: [] } };
+let db = { solves: [], event: '3-3-3', mode: 'phone', comp: false, sound: true, vol: 0.7, theme: 'arcade', round: { ev: '3-3-3', times: [] } };
 const need = () => db.mode === 'tablet2' ? 2 : 1;
 const hintIdle = () => need() === 2 ? 'Pose les deux mains sur les pads' : 'Pose un doigt sur le pad';
 try { Object.assign(db, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
@@ -68,22 +68,48 @@ function stop() {
 
 // --- sons (Web Audio, aucun fichier) ---
 let actx = null;
-function beep(freq, dur = 0.12, type = 'sine', gain = 0.25, delay = 0) {
-  if (!db.sound) return;
+function tone(freq, dur = 0.12, type = 'sine', gain = 0.25, delay = 0) {
+  if (!db.sound || db.vol <= 0) return;
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
-    const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+    const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain(), v = gain * db.vol * db.vol * 1.6;
     o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(v, 0.0002), t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
   } catch (e) {}
 }
+const bell = (f, dur, gain, delay = 0) => { tone(f, dur, 'sine', gain, delay); tone(f * 2.76, dur * 0.5, 'sine', gain * 0.4, delay); };
+const seq = (notes, step, fn) => notes.forEach((f, i) => fn(f, i * step));
+const THEMES = {
+  arcade: {
+    ready() { tone(880, 0.15, 'square', 0.15); },
+    stop() { tone(330, 0.18, 'triangle', 0.35); },
+    record() { seq([523, 659, 784, 1047], 0.09, (f, d) => tone(f, 0.12, 'square', 0.14, d)); },
+    round() { seq([392, 523, 659, 784, 1047], 0.1, (f, d) => tone(f, 0.16, 'square', 0.14, d)); },
+  },
+  doux: {
+    ready() { tone(660, 0.2, 'sine', 0.3); },
+    stop() { tone(330, 0.25, 'sine', 0.4); },
+    record() { seq([523, 659, 784, 1047], 0.11, (f, d) => tone(f, 0.22, 'triangle', 0.3, d)); },
+    round() { seq([392, 523, 659, 784, 1047], 0.12, (f, d) => tone(f, 0.26, 'sine', 0.3, d)); },
+  },
+  cloche: {
+    ready() { bell(988, 0.5, 0.3); },
+    stop() { bell(523, 0.7, 0.35); },
+    record() { seq([659, 880, 1175], 0.16, (f, d) => bell(f, 0.8, 0.3, d)); },
+    round() { seq([523, 659, 784, 1047], 0.18, (f, d) => bell(f, 0.9, 0.3, d)); },
+  },
+  chrono: { // bips secs façon chronomètre de sport
+    ready() { tone(2000, 0.09, 'square', 0.12); },
+    stop() { tone(1500, 0.25, 'square', 0.12); },
+    record() { [0, 0.14, 0.28].forEach(d => tone(2000, 0.09, 'square', 0.12, d)); },
+    round() { [0, 0.14, 0.28, 0.42].forEach((d, i) => tone(i === 3 ? 2600 : 2000, i === 3 ? 0.3 : 0.09, 'square', 0.12, d)); },
+  },
+};
 const sfx = {
-  ready() { beep(880, 0.15, 'square', 0.15); },
-  stop() { beep(330, 0.18, 'triangle', 0.35); },
-  record() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'triangle', 0.3, i * 0.11)); },
-  round() { [392, 523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, 'sine', 0.3, i * 0.12)); },
+  ready: () => THEMES[db.theme].ready(), stop: () => THEMES[db.theme].stop(),
+  record: () => THEMES[db.theme].record(), round: () => THEMES[db.theme].round(),
 };
 const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 async function requestWake() { try { wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
@@ -130,12 +156,12 @@ function renderStats() {
 
 // --- UI ---
 function tab(name) {
-  $('view-timer').hidden = name !== 'timer'; $('view-stats').hidden = name !== 'stats';
-  $('tab-timer').classList.toggle('on', name === 'timer'); $('tab-stats').classList.toggle('on', name === 'stats');
+  for (const n of ['timer', 'stats', 'opts']) { $('view-' + n).hidden = name !== n; $('tab-' + n).classList.toggle('on', name === n); }
   if (name === 'stats') renderStats();
 }
 $('tab-timer').onclick = () => tab('timer');
 $('tab-stats').onclick = () => tab('stats');
+$('tab-opts').onclick = () => tab('opts');
 $('event').value = db.event;
 $('event').onchange = e => { db.event = e.target.value; db.round = { ev: db.event, times: [] }; save(); renderRound(); $('time').textContent = '0.000'; if (!$('view-stats').hidden) renderStats(); };
 $('history').onclick = e => {
@@ -158,11 +184,15 @@ for (const id of ['padL', 'padR']) {
 document.addEventListener('contextmenu', e => e.preventDefault());
 function applyToggles() {
   $('comp').classList.toggle('on', db.comp); $('comp').setAttribute('aria-pressed', db.comp);
-  $('snd').textContent = db.sound ? '🔊' : '🔇'; $('snd').setAttribute('aria-pressed', db.sound);
-  $('snd').title = db.sound ? 'Sons activés' : 'Sons désactivés';
+  $('o-sound').checked = db.sound; $('o-vol').value = Math.round(db.vol * 100); $('o-vol-v').textContent = Math.round(db.vol * 100);
+  $('o-theme').value = db.theme; $('o-vol').disabled = $('o-theme').disabled = $('o-test').disabled = !db.sound;
 }
 $('comp').onclick = () => { db.comp = !db.comp; db.round = { ev: db.event, times: [] }; save(); applyToggles(); renderRound(); };
-$('snd').onclick = () => { db.sound = !db.sound; save(); applyToggles(); if (db.sound) sfx.ready(); };
+$('o-sound').onchange = e => { db.sound = e.target.checked; save(); applyToggles(); sfx.ready(); };
+$('o-vol').oninput = e => { db.vol = e.target.value / 100; $('o-vol-v').textContent = e.target.value; };
+$('o-vol').onchange = () => { save(); sfx.ready(); };
+$('o-theme').onchange = e => { db.theme = e.target.value; save(); sfx.ready(); };
+$('o-test').onclick = () => { sfx.ready(); setTimeout(sfx.stop, 600); setTimeout(sfx.record, 1200); setTimeout(sfx.round, 2400); };
 function applyMode() {
   $('mode').value = db.mode;
   $('padR').hidden = need() === 1;
